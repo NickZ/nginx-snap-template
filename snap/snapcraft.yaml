@@ -1,0 +1,107 @@
+name: nginx-snap-template
+version: '0.1'
+grade: stable
+confinement: strict
+base: core18
+summary: Nginx snap template
+description: Self-contained nginx snap template for easy containerization
+             and deployment of webapps 
+
+# This is the command for starting the nginx service. It uses the command wrapper provided
+# with this snap template.
+# This will automatically run when installed.
+apps:
+  nginx-template:
+    command: "nginx-template"
+    # Requires network-bind to be able to listen on ports.
+    plugs: [network-bind]
+    # nginx is a forking process, so we have to specify that this is a forking daemon.
+    daemon: forking
+
+
+parts:
+  # This is your webapp part.
+  # For the purposes of demonstration, we'll just use the "dump" plugin to deposit
+  # a static html file into the snap.
+  webapp:
+    source: web-files/
+    plugin: dump
+    # The host configuration file included in host-files/ uses $SNAP/www by default,
+    # so we'll move the files there.
+    organize:
+      "*" : www/
+
+
+  # This part puts the command wrapper and configuration template files in their
+  # appropriate locations.
+
+  # The install hook will put the config templates in $SNAP_COMMON
+  # (in this case, that would be /var/snap/nginx-snap-template/common)
+  # So, in addition to just mofifying these config templates at build time, you can
+  # modify these after installation as well.
+
+  # One important thing to note: the install hook only runs during the first 
+  # snap installation. It does not get run every time the snap gets refreshed.
+  # In order for the install hook to be run again, you would have to remove
+  # and then install the snap again.
+  # If you modify the configuration in subsequent builds and do not reinstall, 
+  # they will not get installed to $SNAP_COMMON and they will not be used by 
+  # the command wrapper by default.
+  # The configuration hook does get run on every refresh, so a way to fix this
+  # would be to modify the configuration hook to re-run the install hook every time.
+
+  # The config files actually used by the command wrapper are
+  # dynamically generated from these templates at runtime, because these
+  # use environment variables for the various paths and nginx does not allow
+  # environment variables in config files by default.
+
+  wrapperconf:
+    source: config-templates/
+    plugin: dump
+    organize: 
+      "nginx-template.conf.template" : config/nginx-template.conf.template
+      "host-files/*" : config/host-files/
+      "nginx-template.wrapper" : usr/bin/nginx-template
+    stage-packages:
+      # We include gettext-base for envsubst, which is used by the command wrapper.
+      - gettext-base
+
+  # The nginx part. We download and build from source.
+  nginx:
+    source: https://nginx.org/download/nginx-1.17.4.tar.gz
+    plugin: autotools
+    # By default, nginx will put its temporary directories (lock, pid, body, etc.)
+    # into /var/lib/nginx. Since this is contained, it won't have access to those
+    # directories, so we will instead point it to $SNAP_COMMON.
+    # We don't have access to the $SNAP_COMMON variable when building the snap, 
+    # but by default, this is /var/snap/$SNAPCRAFT_PROJECT_NAME/common, so we'll 
+    # just point it to there.
+    configflags:
+      - --prefix=/usr
+      - --http-log-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/log/nginx-access.log
+      - --error-log-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/log/nginx-error.log
+      - --lock-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/lock/nginx.lock
+      - --pid-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/run/nginx.pid
+      - --http-client-body-temp-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/lib/nginx_client_body
+      - --http-proxy-temp-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/lib/nginx_proxy
+      - --http-fastcgi-temp-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/lib/nginx_fastcgi
+      - --http-uwsgi-temp-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/lib/nginx_uwsgi
+      - --http-scgi-temp-path=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/lib/nginx_scgi
+      - --with-http_ssl_module
+    build-packages:
+      - libpcre3-dev
+      - libssl-dev
+      - zlib1g-dev
+    #nginx requires this patch to run in containment because SECCOMP does not allow 'setgroups'
+    #So, we'll override the build step to patch nginx, then call snapcraftctl build to proceed.
+    override-build: |
+      patch -p1 < $SNAPCRAFT_PROJECT_DIR/patches/drop-nginx-setgroups.patch
+      snapcraftctl build
+    stage-packages:
+      - libxml2
+      - zlib1g
+
+# We use the install hook to move the config templates into $SNAP_COMMON.
+hooks:
+  install:
+    plugs: []

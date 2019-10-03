@@ -1,0 +1,47 @@
+#!/bin/bash -e
+#
+# Command wrapper for nginx.
+# Start nginx in daemon mode
+
+#set umask to 0077 to prevent any subsequent log files from being readable by non-root.
+umask 0077
+
+#clean up any previously dynamically generated files
+rm -f $SNAP_COMMON/tmp/nginx-template.conf
+rm -rf $SNAP_COMMON/tmp/sites-running
+
+#Nginx can't use environment variables in config, so we have to run envsubst
+mkdir -p $SNAP_COMMON/tmp/sites-running
+envsubst < $SNAP_COMMON/nginx-template.conf.template > $SNAP_COMMON/tmp/nginx-template.conf
+
+#Remove ".template" and do envsubst on every host-file
+for file in `ls -1 $SNAP_COMMON/host-files`; do
+    host=$(echo "$file" | cut -f 1 -d '.')
+    envsubst < $SNAP_COMMON/host-files/$file > $SNAP_COMMON/tmp/sites-running/$host
+done
+
+#nginx can't do mkdir -p for the directories it needs, so we'll do that here.
+mkdir -p $SNAP_COMMON/log
+mkdir -p $SNAP_COMMON/run
+mkdir -p $SNAP_COMMON/lock
+mkdir -p $SNAP_COMMON/lib/nginx_client_body
+mkdir -p $SNAP_COMMON/lib/nginx_proxy
+mkdir -p $SNAP_COMMON/lib/nginx_uwsgi
+mkdir -p $SNAP_COMMON/lib/nginx_fastcgi
+mkdir -p $SNAP_COMMON/lib/nginx_scgi
+
+#It will also sometimes crash if error.log doesn't exist
+touch $SNAP_COMMON/log/access.log
+touch $SNAP_COMMON/log/error.log
+
+#set the logs and temp directories to read-only by root
+find $SNAP_COMMON/lib -type d -exec chmod 700 {} \;
+find $SNAP_COMMON/lib -type f -exec chmod 600 {} \;
+
+find $SNAP_COMMON/log -type d -exec chmod 700 {} \;
+find $SNAP_COMMON/log -type f -exec chmod 600 {} \;
+
+#Run nginx with the dynamically generated configuration file
+exec "nginx" "-c" "$SNAP_COMMON/tmp/nginx-template.conf"
+
+

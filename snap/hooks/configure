@@ -1,0 +1,10 @@
+#!/bin/sh -e
+
+echo "You could potentially use this hook to do things like automatically\
+ add ssl support by generating keys and modifying the configuration files.\
+ You can also just run the install hook again if you would like for the\
+ config templates to be copied every time."
+
+# Please note that hooks currently do not inherit the evironment that the
+# command wrappers use, so you will have to define that yourself.
+# See https://bugs.launchpad.net/snapcraft/+bug/1824255
