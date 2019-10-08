@@ -2,6 +2,7 @@
 #the install hook will copy the config templates into $SNAP_COMMON
 
 cp $SNAP/config/nginx-template.conf.template $SNAP_COMMON/nginx-template.conf.template
+cp $SNAP/config/env-list $SNAP_COMMON/env-list
 
 cp -R $SNAP/config/host-files $SNAP_COMMON/host-files
 

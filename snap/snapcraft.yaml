@@ -61,6 +61,7 @@ parts:
     organize: 
       "nginx-template.conf.template" : config/nginx-template.conf.template
       "host-files/*" : config/host-files/
+      "env-list" : config/
       "nginx-template.wrapper" : usr/bin/nginx-template
     stage-packages:
       # We include gettext-base for envsubst, which is used by the command wrapper.

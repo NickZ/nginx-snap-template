@@ -11,13 +11,19 @@ rm -f $SNAP_COMMON/tmp/nginx-template.conf
 rm -rf $SNAP_COMMON/tmp/sites-running
 
 #Nginx can't use environment variables in config, so we have to run envsubst
+
+#this is the list of environment variables, in the format of "${VAR1},${VAR2}"
+#Only these variables will be substituted in the configuration files.
+
+SUBSTVARS="$(cat $SNAP_COMMON/env-list | tr -d '\n')"
+
 mkdir -p $SNAP_COMMON/tmp/sites-running
-envsubst < $SNAP_COMMON/nginx-template.conf.template > $SNAP_COMMON/tmp/nginx-template.conf
+envsubst $SUBSTVARS < $SNAP_COMMON/nginx-template.conf.template > $SNAP_COMMON/tmp/nginx-template.conf
 
 #Remove ".template" and do envsubst on every host-file
 for file in `ls -1 $SNAP_COMMON/host-files`; do
     host=$(echo "$file" | cut -f 1 -d '.')
-    envsubst < $SNAP_COMMON/host-files/$file > $SNAP_COMMON/tmp/sites-running/$host
+    envsubst $SUBSTVARS < $SNAP_COMMON/host-files/$file > $SNAP_COMMON/tmp/sites-running/$host
 done
 
 #nginx can't do mkdir -p for the directories it needs, so we'll do that here.
