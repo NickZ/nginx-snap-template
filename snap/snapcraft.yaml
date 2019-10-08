@@ -1,5 +1,5 @@
 name: nginx-snap-template
-version: '0.1'
+version: '1.0'
 grade: stable
 confinement: strict
 base: core18
